@@ -82,16 +82,28 @@ function PublicBookingPage() {
     mutationFn: async () => {
       if (!doctor) throw new Error("Cabinet inexistent");
       if (!selectedSlot) throw new Error("Selectează un interval");
-      const { error } = await supabase.from("appointments").insert({
-        doctor_id: doctor.id,
-        patient_name: form.patient_name,
-        patient_phone: form.patient_phone || null,
-        appointment_date: selectedIso,
-        appointment_time: selectedSlot,
-        reason: form.reason || null,
-        source: "public",
-      });
+      const { data: inserted, error } = await supabase
+        .from("appointments")
+        .insert({
+          doctor_id: doctor.id,
+          patient_name: form.patient_name,
+          patient_phone: form.patient_phone || null,
+          appointment_date: selectedIso,
+          appointment_time: selectedSlot,
+          reason: form.reason || null,
+          source: "public",
+        })
+        .select("id")
+        .single();
       if (error) throw error;
+      // Fire-and-forget SMS confirmation (won't block the booking on failure)
+      if (inserted?.id) {
+        fetch("/api/public/confirm-appointment", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ appointmentId: inserted.id }),
+        }).catch((e) => console.error("SMS confirmation failed", e));
+      }
     },
     onSuccess: () => {
       toast.success("Programare confirmată!");
@@ -125,9 +137,6 @@ function PublicBookingPage() {
 
         {/* Day selector */}
         <div className="mb-8">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-3">
-            1. Alege ziua
-          </p>
           <div className="flex items-center justify-between mb-3">
             <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
               1. Alege ziua

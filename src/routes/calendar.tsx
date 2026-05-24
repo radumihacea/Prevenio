@@ -84,21 +84,33 @@ function CalendarPage() {
       patient_phone: string;
       reason: string;
     }) => {
-      const { error } = await supabase.from("appointments").insert({
-        doctor_id: doctorId!,
-        patient_name: input.patient_name,
-        patient_phone: input.patient_phone || null,
-        appointment_date: input.date,
-        appointment_time: input.time,
-        reason: input.reason || null,
-        source: "doctor",
-      });
+      const { data: inserted, error } = await supabase
+        .from("appointments")
+        .insert({
+          doctor_id: doctorId!,
+          patient_name: input.patient_name,
+          patient_phone: input.patient_phone || null,
+          appointment_date: input.date,
+          appointment_time: input.time,
+          reason: input.reason || null,
+          source: "doctor",
+        })
+        .select("id")
+        .single();
       if (error) throw error;
+      if (inserted?.id) {
+        fetch("/api/public/confirm-appointment", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ appointmentId: inserted.id }),
+        }).catch((e) => console.error("SMS confirmation failed", e));
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["appointments"] });
+      qc.invalidateQueries({ queryKey: ["sms_log"] });
       setCreating(null);
-      toast.success("Programare adăugată");
+      toast.success("Programare adăugată — pacientul a fost notificat prin SMS");
     },
     onError: (e: any) => toast.error(e.message),
   });

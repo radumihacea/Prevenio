@@ -18,6 +18,7 @@ import { Route as ComunicareRouteImport } from './routes/comunicare'
 import { Route as CalendarRouteImport } from './routes/calendar'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as CabinetSlugProgramariRouteImport } from './routes/cabinet.$slug.programari'
+import { Route as ApiPublicConfirmAppointmentRouteImport } from './routes/api/public/confirm-appointment'
 
 const VaccinuriRoute = VaccinuriRouteImport.update({
   id: '/vaccinuri',
@@ -64,6 +65,12 @@ const CabinetSlugProgramariRoute = CabinetSlugProgramariRouteImport.update({
   path: '/cabinet/$slug/programari',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicConfirmAppointmentRoute =
+  ApiPublicConfirmAppointmentRouteImport.update({
+    id: '/api/public/confirm-appointment',
+    path: '/api/public/confirm-appointment',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -74,6 +81,7 @@ export interface FileRoutesByFullPath {
   '/programul-zilei': typeof ProgramulZileiRoute
   '/signup': typeof SignupRoute
   '/vaccinuri': typeof VaccinuriRoute
+  '/api/public/confirm-appointment': typeof ApiPublicConfirmAppointmentRoute
   '/cabinet/$slug/programari': typeof CabinetSlugProgramariRoute
 }
 export interface FileRoutesByTo {
@@ -85,6 +93,7 @@ export interface FileRoutesByTo {
   '/programul-zilei': typeof ProgramulZileiRoute
   '/signup': typeof SignupRoute
   '/vaccinuri': typeof VaccinuriRoute
+  '/api/public/confirm-appointment': typeof ApiPublicConfirmAppointmentRoute
   '/cabinet/$slug/programari': typeof CabinetSlugProgramariRoute
 }
 export interface FileRoutesById {
@@ -97,6 +106,7 @@ export interface FileRoutesById {
   '/programul-zilei': typeof ProgramulZileiRoute
   '/signup': typeof SignupRoute
   '/vaccinuri': typeof VaccinuriRoute
+  '/api/public/confirm-appointment': typeof ApiPublicConfirmAppointmentRoute
   '/cabinet/$slug/programari': typeof CabinetSlugProgramariRoute
 }
 export interface FileRouteTypes {
@@ -110,6 +120,7 @@ export interface FileRouteTypes {
     | '/programul-zilei'
     | '/signup'
     | '/vaccinuri'
+    | '/api/public/confirm-appointment'
     | '/cabinet/$slug/programari'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -121,6 +132,7 @@ export interface FileRouteTypes {
     | '/programul-zilei'
     | '/signup'
     | '/vaccinuri'
+    | '/api/public/confirm-appointment'
     | '/cabinet/$slug/programari'
   id:
     | '__root__'
@@ -132,6 +144,7 @@ export interface FileRouteTypes {
     | '/programul-zilei'
     | '/signup'
     | '/vaccinuri'
+    | '/api/public/confirm-appointment'
     | '/cabinet/$slug/programari'
   fileRoutesById: FileRoutesById
 }
@@ -144,6 +157,7 @@ export interface RootRouteChildren {
   ProgramulZileiRoute: typeof ProgramulZileiRoute
   SignupRoute: typeof SignupRoute
   VaccinuriRoute: typeof VaccinuriRoute
+  ApiPublicConfirmAppointmentRoute: typeof ApiPublicConfirmAppointmentRoute
   CabinetSlugProgramariRoute: typeof CabinetSlugProgramariRoute
 }
 
@@ -212,6 +226,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CabinetSlugProgramariRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/confirm-appointment': {
+      id: '/api/public/confirm-appointment'
+      path: '/api/public/confirm-appointment'
+      fullPath: '/api/public/confirm-appointment'
+      preLoaderRoute: typeof ApiPublicConfirmAppointmentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -224,6 +245,7 @@ const rootRouteChildren: RootRouteChildren = {
   ProgramulZileiRoute: ProgramulZileiRoute,
   SignupRoute: SignupRoute,
   VaccinuriRoute: VaccinuriRoute,
+  ApiPublicConfirmAppointmentRoute: ApiPublicConfirmAppointmentRoute,
   CabinetSlugProgramariRoute: CabinetSlugProgramariRoute,
 }
 export const routeTree = rootRouteImport

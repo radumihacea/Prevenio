@@ -280,7 +280,7 @@ function PatientModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-secondary/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+    <div className="fixed inset-0 z-50 bg-secondary/60 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto">
       <div className="bg-card rounded-3xl p-8 w-full max-w-3xl border border-border my-8">
         <h3 className="text-xl font-display font-bold mb-1">
           {initial.id ? form.full_name || "Editare pacient" : "Pacient nou"}
