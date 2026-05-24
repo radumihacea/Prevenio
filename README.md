@@ -8,7 +8,7 @@ medicului de familie.
 
 ## 2. Ce face, pe scurt?
 
-MedCab este o platformă web pentru medicii de familie din România care
+Prevenio este o platformă web pentru medicii de familie din România care
 înlocuiește registrele de hârtie, agendele și telefoanele neîncetate.
 Medicul își gestionează pacienții, programările, vaccinările și
 comunicarea prin SMS dintr-un singur loc, iar pacienții își fac singuri
