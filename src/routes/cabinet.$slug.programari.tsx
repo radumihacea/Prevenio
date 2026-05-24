@@ -65,14 +65,13 @@ function PublicBookingPage() {
     queryKey: ["public_appts", doctor?.id, selectedIso],
     enabled: !!doctor?.id,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("appointments")
+      const { data, error } = await (supabase as any)
+        .from("public_appointment_slots")
         .select("appointment_time")
         .eq("doctor_id", doctor!.id)
-        .eq("appointment_date", selectedIso)
-        .neq("status", "cancelled");
+        .eq("appointment_date", selectedIso);
       if (error) throw error;
-      return new Set(data.map((a) => a.appointment_time.slice(0, 5)));
+      return new Set((data as { appointment_time: string }[]).map((a) => a.appointment_time.slice(0, 5)));
     },
   });
 

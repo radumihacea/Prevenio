@@ -353,7 +353,32 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      public_appointment_slots: {
+        Row: {
+          appointment_date: string | null
+          appointment_time: string | null
+          doctor_id: string | null
+        }
+        Insert: {
+          appointment_date?: string | null
+          appointment_time?: string | null
+          doctor_id?: string | null
+        }
+        Update: {
+          appointment_date?: string | null
+          appointment_time?: string | null
+          doctor_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appointments_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: false
+            referencedRelation: "doctors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       [_ in never]: never

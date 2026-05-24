@@ -1,54 +1,40 @@
-# Plan: SMS prin Twilio (renunțăm la gateway-ul Android)
+## Problema
 
-## Context
-- Twilio e conectat ca App connector → `TWILIO_API_KEY` și `LOVABLE_API_KEY` sunt disponibile în runtime-ul server.
-- Număr expeditor: `+19129553773`.
-- Renunțăm complet la vechea logică (Android gateway pe `172.20.10.4:8082`, status `queued`, endpoint `/api/public/hooks/auto-comms` — deja șters).
+Pagina `/cabinet/{slug}/programari` rămâne blocată la "Se încarcă cabinetul..." pentru orice vizitator care nu este autentificat (pacienții care primesc link-ul prin SMS).
 
-## Modificări
+**Cauza:** tabelele `doctors` și `appointments` au politici RLS doar pentru rolul `authenticated`. Clientul Supabase din browser folosește rolul `anon` pentru vizitatorii nelogați, deci interogarea `SELECT * FROM doctors WHERE slug = ...` returnează 0 rânduri → `doctor` rămâne `undefined` → pagina nu iese niciodată din starea de loading.
 
-### 1. Helper nou: `src/lib/twilio.server.ts`
-Funcție `sendTwilioSms(to, body)` care:
-- Citește `LOVABLE_API_KEY`, `TWILIO_API_KEY`, `TWILIO_FROM_NUMBER` din `process.env` (aruncă erori clare dacă lipsesc).
-- POST `application/x-www-form-urlencoded` la `https://connector-gateway.lovable.dev/twilio/Messages.json` cu headerele cerute de gateway (`Authorization: Bearer ${LOVABLE_API_KEY}`, `X-Connection-Api-Key: ${TWILIO_API_KEY}`).
-- Returnează `{ ok, sid?, error? }`. Nu aruncă pe eroare HTTP — caller-ul decide cum logăm în `sms_log`.
+Același lucru s-ar întâmpla și la rezervare: `INSERT` în `appointments` ar eșua silențios.
 
-Numărul `+19129553773` va fi păstrat ca secret runtime `TWILIO_FROM_NUMBER` (cer add_secret în pasul de build), nu hardcodat.
+## Soluție
 
-### 2. `src/lib/appointments.functions.ts` (refactor `cancelAppointment`)
-- Șterg helper-ul local `sendSms` și constanta `GATEWAY_TIMEOUT_MS`.
-- Import `sendTwilioSms` din `./twilio.server`.
-- Logica de mesaj rămâne aceeași; trimit prin Twilio.
-- Insert în `sms_log` cu `status: "sent"` sau `"failed"` (+ eventual `sid` pus în `tag`).
+Migrație SQL care adaugă politicile RLS minim necesare pentru rolul `anon`, fără să atingă politicile existente pentru `authenticated`:
 
-### 3. Server function nou: `sendTemplateSms` în `src/lib/communications.functions.ts`
-- `requireSupabaseAuth`, input `{ templateId }`.
-- Re-implementează logica din butonul „Trimite mesajul":
-  - Ia doctorul curent + pacienții lui din DB.
-  - Filtrează după template (segmentele rămân în `src/lib/segments.ts`, importat în versiunea server — fără cod care folosește `window`).
-  - Pentru fiecare destinatar: `sendTwilioSms`, apoi insert în `sms_log` (status real `sent`/`failed`).
-  - Returnează `{ sent, failed }`.
-- Linkul către portal nu mai poate folosi `window.location.origin` — îl construim din header-ul `host` al request-ului sau dintr-un `PUBLIC_APP_URL` (folosesc `getRequestHeader('host')` cu fallback).
+1. **`doctors`** — `SELECT` public, doar coloanele necesare paginii publice (nume, cabinet, specialitate, slug, program de lucru). Toate coloanele tabelei sunt deja informații publice afișate pe pagina de programare, deci politica va fi `USING (true)` pe tot rândul.
 
-### 4. `src/routes/comunicare.tsx`
-- Înlocuiesc mutația care făcea `supabase.from("sms_log").insert(rows)` cu apel `useServerFn(sendTemplateSms)`.
-- Restul UI rămâne neschimbat. Toast-ul arată `sent`/`failed`.
+2. **`appointments`** — două politici noi pentru `anon`:
+   - `SELECT` limitat: doar coloana `appointment_time` pentru o zi/medic dat (necesar pentru a marca sloturile ocupate). Politica permite `SELECT` general, dar codul aplicației nu cere date sensibile (nume pacient, telefon) — vom restrânge prin coloane: politica va permite `SELECT (true)` doar pe rândurile cu `status != 'cancelled'`. **Notă de securitate:** pentru a evita expunerea numelor pacienților, vom crea o **view** publică `public_appointment_slots` care expune doar `doctor_id, appointment_date, appointment_time` și vom modifica `cabinet.$slug.programari.tsx` să citească din view în loc de tabel.
+   - `INSERT` public: orice anon poate adăuga o programare cu `source = 'public'`. Politica `WITH CHECK (source = 'public')` previne abuzul de a insera programări marcate ca venind din alte surse.
 
-### 5. Secret nou
-Cer prin `add_secret` o singură variabilă: `TWILIO_FROM_NUMBER` = `+19129553773`.
+## Pași concreți
 
-## Ce NU schimbăm
-- Schema DB (`sms_log` rămâne identic).
-- RLS, auth, UI, segmentele, șabloanele.
-- Funcțiile pentru programări (doar internalul de trimitere se schimbă).
+1. Migrație SQL:
+   - `CREATE POLICY "anon read doctors" ON doctors FOR SELECT TO anon USING (true);`
+   - `CREATE VIEW public_appointment_slots WITH (security_invoker=true) AS SELECT doctor_id, appointment_date, appointment_time FROM appointments WHERE status != 'cancelled';`
+   - `GRANT SELECT ON public_appointment_slots TO anon;`
+   - `CREATE POLICY "anon read slot times" ON appointments FOR SELECT TO anon USING (status <> 'cancelled');` (necesar pentru ca view-ul security_invoker să funcționeze; expune doar coloanele cerute prin view — codul aplicației nu va mai selecta direct din tabel)
+   - Alternativ mai sigur: politică `SELECT` doar pentru coloanele non-PII via funcție RPC. Voi merge cu varianta view + modificarea fetch-ului în cod.
+   - `CREATE POLICY "anon insert public appointments" ON appointments FOR INSERT TO anon WITH CHECK (source = 'public' AND status = 'pending');`
 
-## Fișiere atinse
-- `src/lib/twilio.server.ts` (nou)
-- `src/lib/communications.functions.ts` (nou)
-- `src/lib/appointments.functions.ts` (refactor)
-- `src/routes/comunicare.tsx` (mutația folosește server fn nouă)
-- `.lovable/plan.md` (curățat — referințele vechi la auto-comms / Android gateway dispar)
+2. Modificare în `src/routes/cabinet.$slug.programari.tsx`:
+   - Schimbă `.from("appointments").select("appointment_time")` în `.from("public_appointment_slots").select("appointment_time")`.
+   - Restul rămâne neschimbat.
 
-## Validare
-- Anulare programare din calendar → SMS real către pacient, rând `sent` în `sms_log`.
-- „Trimite mesajul" din Comunicare → SMS-uri reale către segmentul afișat, contoarele din istoric se actualizează.
+## Rezultat
+
+- Link-ul `/cabinet/dr-popescu/programari` etc. se va încărca corect pentru oricine, fără login.
+- Pacienții pot vedea sloturile disponibile și pot face programare.
+- Numele/telefoanele altor pacienți rămân private (nu sunt expuse prin view).
+- Medicii autentificați continuă să vadă/gestioneze toate programările lor ca până acum.
+
+Nu modific designul paginii, nu modific funcționalitatea pentru medicii logați.
