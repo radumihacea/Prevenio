@@ -182,7 +182,7 @@ function CommunicationPage() {
               <div className="p-4 bg-muted/40 rounded-xl text-sm leading-relaxed mt-4 mb-4">
                 „{tpl.body}{" "}
                 <span className="text-primary">
-                  med.ro/{doctorSlug}/programari
+                  prevenio.david-andrus.workers.dev/cabinet/{doctorSlug}/programari
                 </span>
                 "
               </div>

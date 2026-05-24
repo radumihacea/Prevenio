@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { getRequestHost } from "@tanstack/react-start/server";
+
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { sendTwilioSms } from "./twilio.server";
@@ -35,11 +35,7 @@ export const sendTemplateSms = createServerFn({ method: "POST" })
     if (audience.length === 0)
       return { sent: 0, failed: 0, total: 0, warning: "Niciun pacient în segment." };
 
-    let host = "med.ro";
-    try {
-      host = getRequestHost();
-    } catch {}
-    const link = `https://${host}/cabinet/${data.doctorSlug}/programari`;
+    const link = `https://prevenio.david-andrus.workers.dev/cabinet/${data.doctorSlug}/programari`;
     const message = `${tpl.body} ${link}`;
 
     let sent = 0;

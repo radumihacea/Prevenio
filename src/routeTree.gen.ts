@@ -18,7 +18,6 @@ import { Route as ComunicareRouteImport } from './routes/comunicare'
 import { Route as CalendarRouteImport } from './routes/calendar'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as CabinetSlugProgramariRouteImport } from './routes/cabinet.$slug.programari'
-import { Route as ApiPublicHooksAutoCommsRouteImport } from './routes/api/public/hooks/auto-comms'
 
 const VaccinuriRoute = VaccinuriRouteImport.update({
   id: '/vaccinuri',
@@ -65,11 +64,6 @@ const CabinetSlugProgramariRoute = CabinetSlugProgramariRouteImport.update({
   path: '/cabinet/$slug/programari',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiPublicHooksAutoCommsRoute = ApiPublicHooksAutoCommsRouteImport.update({
-  id: '/api/public/hooks/auto-comms',
-  path: '/api/public/hooks/auto-comms',
-  getParentRoute: () => rootRouteImport,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -81,7 +75,6 @@ export interface FileRoutesByFullPath {
   '/signup': typeof SignupRoute
   '/vaccinuri': typeof VaccinuriRoute
   '/cabinet/$slug/programari': typeof CabinetSlugProgramariRoute
-  '/api/public/hooks/auto-comms': typeof ApiPublicHooksAutoCommsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -93,7 +86,6 @@ export interface FileRoutesByTo {
   '/signup': typeof SignupRoute
   '/vaccinuri': typeof VaccinuriRoute
   '/cabinet/$slug/programari': typeof CabinetSlugProgramariRoute
-  '/api/public/hooks/auto-comms': typeof ApiPublicHooksAutoCommsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -106,7 +98,6 @@ export interface FileRoutesById {
   '/signup': typeof SignupRoute
   '/vaccinuri': typeof VaccinuriRoute
   '/cabinet/$slug/programari': typeof CabinetSlugProgramariRoute
-  '/api/public/hooks/auto-comms': typeof ApiPublicHooksAutoCommsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -120,7 +111,6 @@ export interface FileRouteTypes {
     | '/signup'
     | '/vaccinuri'
     | '/cabinet/$slug/programari'
-    | '/api/public/hooks/auto-comms'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -132,7 +122,6 @@ export interface FileRouteTypes {
     | '/signup'
     | '/vaccinuri'
     | '/cabinet/$slug/programari'
-    | '/api/public/hooks/auto-comms'
   id:
     | '__root__'
     | '/'
@@ -144,7 +133,6 @@ export interface FileRouteTypes {
     | '/signup'
     | '/vaccinuri'
     | '/cabinet/$slug/programari'
-    | '/api/public/hooks/auto-comms'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -157,7 +145,6 @@ export interface RootRouteChildren {
   SignupRoute: typeof SignupRoute
   VaccinuriRoute: typeof VaccinuriRoute
   CabinetSlugProgramariRoute: typeof CabinetSlugProgramariRoute
-  ApiPublicHooksAutoCommsRoute: typeof ApiPublicHooksAutoCommsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -225,13 +212,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CabinetSlugProgramariRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/hooks/auto-comms': {
-      id: '/api/public/hooks/auto-comms'
-      path: '/api/public/hooks/auto-comms'
-      fullPath: '/api/public/hooks/auto-comms'
-      preLoaderRoute: typeof ApiPublicHooksAutoCommsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
   }
 }
 
@@ -245,7 +225,6 @@ const rootRouteChildren: RootRouteChildren = {
   SignupRoute: SignupRoute,
   VaccinuriRoute: VaccinuriRoute,
   CabinetSlugProgramariRoute: CabinetSlugProgramariRoute,
-  ApiPublicHooksAutoCommsRoute: ApiPublicHooksAutoCommsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
