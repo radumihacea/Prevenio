@@ -2,7 +2,7 @@
 
 ## 1. Cum se numește?
 
-**MedCab** — „Med" de la medical, „Cab" de la cabinet. Un nume scurt, ușor de
+**Prevenio** — Un nume scurt, ușor de
 ținut minte, care comunică direct ce face produsul: digitalizează cabinetul
 medicului de familie.
 
