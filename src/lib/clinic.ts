@@ -1,7 +1,5 @@
-export const DOCTOR_ID = "11111111-1111-1111-1111-111111111111";
-export const DOCTOR_SLUG = "dr-ionescu";
-export const DOCTOR_NAME = "Dr. Adrian Ionescu";
-export const CABINET_NAME = "Cabinet Medical Individual";
+// Constantele DOCTOR_* au fost eliminate. Folosiți hook-ul useCurrentDoctor()
+// pentru a obține medicul autentificat curent. Vezi src/hooks/useCurrentDoctor.ts.
 
 export const RO_MONTHS = [
   "Ianuarie", "Februarie", "Martie", "Aprilie", "Mai", "Iunie",
@@ -57,12 +55,33 @@ export function addDays(d: Date, n: number): Date {
   return r;
 }
 
-// Working hours slots (30 min)
+// Working hours slots (30 min). Default fallback list — prefer generateSlots().
 export const SLOT_HOURS = Array.from({ length: 20 }, (_, i) => {
   const h = 8 + Math.floor(i / 2);
   const m = i % 2 === 0 ? "00" : "30";
   return `${String(h).padStart(2, "0")}:${m}`;
 });
+
+// ISO weekday: 1 = Monday … 7 = Sunday
+export function isoDow(d: Date): number {
+  const js = d.getDay(); // 0=Sun..6=Sat
+  return js === 0 ? 7 : js;
+}
+
+// Build 30-min slot strings between "HH:MM" start (inclusive) and end (exclusive).
+export function generateSlots(start: string, end: string): string[] {
+  const toMin = (t: string) => {
+    const [h, m] = t.slice(0, 5).split(":").map(Number);
+    return h * 60 + m;
+  };
+  const s = toMin(start);
+  const e = toMin(end);
+  const out: string[] = [];
+  for (let m = s; m < e; m += 30) {
+    out.push(`${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`);
+  }
+  return out;
+}
 
 // Normalize RO phone numbers to format "07XX XXX XXX"
 export function formatRoPhone(raw: string | null | undefined): string {

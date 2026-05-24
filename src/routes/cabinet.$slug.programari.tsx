@@ -5,8 +5,9 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   RO_DAYS_SHORT,
   RO_MONTHS,
-  SLOT_HOURS,
   addDays,
+  generateSlots,
+  isoDow,
   toISODate,
 } from "@/lib/clinic";
 import { toast } from "sonner";
@@ -35,10 +36,30 @@ function PublicBookingPage() {
     },
   });
 
+  const [pageIndex, setPageIndex] = useState(0);
   const [selectedDayOffset, setSelectedDayOffset] = useState(0);
-  const days = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(new Date(), i)), []);
-  const selectedDate = days[selectedDayOffset];
-  const selectedIso = toISODate(selectedDate);
+  const PAGE_SIZE = 7;
+  const workingDays: number[] = (doctor as any)?.working_days ?? [1, 2, 3, 4, 5];
+  const workStart: string = (doctor as any)?.work_start_time ?? "08:00";
+  const workEnd: string = (doctor as any)?.work_end_time ?? "18:00";
+  // Generate up to ~8 weeks of upcoming working days
+  const allWorkingDays = useMemo(
+    () =>
+      Array.from({ length: 56 }, (_, i) => addDays(new Date(), i)).filter((d) =>
+        workingDays.includes(isoDow(d)),
+      ),
+    [workingDays],
+  );
+  const totalPages = Math.max(1, Math.ceil(allWorkingDays.length / PAGE_SIZE));
+  const days = useMemo(
+    () => allWorkingDays.slice(pageIndex * PAGE_SIZE, pageIndex * PAGE_SIZE + PAGE_SIZE),
+    [allWorkingDays, pageIndex],
+  );
+  const selectedDate = days[selectedDayOffset] ?? days[0];
+  const selectedIso = selectedDate ? toISODate(selectedDate) : "";
+  const slotHours = useMemo(() => generateSlots(workStart, workEnd), [workStart, workEnd]);
+  const todayIso = toISODate(new Date());
+  const nowMinutes = new Date().getHours() * 60 + new Date().getMinutes();
 
   const { data: takenSlots = new Set<string>() } = useQuery({
     queryKey: ["public_appts", doctor?.id, selectedIso],
@@ -48,7 +69,8 @@ function PublicBookingPage() {
         .from("appointments")
         .select("appointment_time")
         .eq("doctor_id", doctor!.id)
-        .eq("appointment_date", selectedIso);
+        .eq("appointment_date", selectedIso)
+        .neq("status", "cancelled");
       if (error) throw error;
       return new Set(data.map((a) => a.appointment_time.slice(0, 5)));
     },
@@ -107,12 +129,44 @@ function PublicBookingPage() {
           <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-3">
             1. Alege ziua
           </p>
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+              1. Alege ziua
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  setPageIndex((p) => Math.max(0, p - 1));
+                  setSelectedDayOffset(0);
+                  setSelectedSlot(null);
+                }}
+                disabled={pageIndex === 0}
+                className="size-8 grid place-items-center rounded-full border border-border hover:bg-muted disabled:opacity-30"
+              >
+                ←
+              </button>
+              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                {pageIndex + 1} / {totalPages}
+              </span>
+              <button
+                onClick={() => {
+                  setPageIndex((p) => Math.min(totalPages - 1, p + 1));
+                  setSelectedDayOffset(0);
+                  setSelectedSlot(null);
+                }}
+                disabled={pageIndex >= totalPages - 1}
+                className="size-8 grid place-items-center rounded-full border border-border hover:bg-muted disabled:opacity-30"
+              >
+                →
+              </button>
+            </div>
+          </div>
           <div className="flex gap-2 overflow-x-auto pb-2">
             {days.map((d, i) => {
               const active = i === selectedDayOffset;
               return (
                 <button
-                  key={i}
+                  key={toISODate(d)}
                   onClick={() => {
                     setSelectedDayOffset(i);
                     setSelectedSlot(null);
@@ -141,17 +195,20 @@ function PublicBookingPage() {
             2. Alege intervalul
           </p>
           <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
-            {SLOT_HOURS.map((slot) => {
+            {slotHours.map((slot: string) => {
               const taken = takenSlots.has(slot);
+              const [sh, sm] = slot.split(":").map(Number);
+              const past = selectedIso === todayIso && sh * 60 + sm <= nowMinutes;
+              const disabled = taken || past;
               const active = selectedSlot === slot;
               return (
                 <button
                   key={slot}
-                  disabled={taken}
+                  disabled={disabled}
                   onClick={() => setSelectedSlot(slot)}
                   className={
                     "py-3 rounded-xl text-sm font-medium font-mono transition-all " +
-                    (taken
+                    (disabled
                       ? "bg-muted/30 text-muted-foreground/40 line-through cursor-not-allowed"
                       : active
                       ? "bg-primary text-primary-foreground"

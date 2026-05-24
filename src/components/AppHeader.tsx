@@ -1,8 +1,10 @@
-import { Link, useRouterState } from "@tanstack/react-router";
-import { CABINET_NAME, DOCTOR_NAME } from "@/lib/clinic";
+import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
+import { useCurrentDoctor } from "@/hooks/useCurrentDoctor";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 const nav = [
-  { to: "/", label: "Astăzi" },
+  { to: "/programul-zilei", label: "Programul zilei" },
   { to: "/pacienti", label: "Pacienți" },
   { to: "/calendar", label: "Calendar" },
   { to: "/vaccinuri", label: "Vaccinuri" },
@@ -11,15 +13,23 @@ const nav = [
 
 export function AppHeader() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const navigate = useNavigate();
+  const { data: doctor } = useCurrentDoctor();
+
+  async function handleLogout() {
+    await supabase.auth.signOut();
+    toast.success("Deconectat");
+    navigate({ to: "/login" });
+  }
 
   return (
     <header className="max-w-7xl mx-auto flex flex-wrap items-end justify-between gap-6 mb-12">
-      <Link to="/" className="space-y-1 group">
+      <Link to="/programul-zilei" className="space-y-1 group">
         <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary">
-          {CABINET_NAME}
+          {doctor?.cabinet_name ?? "Cabinet Medical"}
         </span>
         <h1 className="text-3xl font-display font-bold tracking-tight group-hover:text-primary transition-colors">
-          {DOCTOR_NAME}
+          {doctor?.full_name ?? "—"}
         </h1>
       </Link>
 
@@ -41,6 +51,12 @@ export function AppHeader() {
             </Link>
           );
         })}
+        <button
+          onClick={handleLogout}
+          className="px-4 py-2 rounded-full text-sm font-medium bg-card border border-border hover:bg-muted text-muted-foreground"
+        >
+          Ieșire
+        </button>
       </nav>
     </header>
   );

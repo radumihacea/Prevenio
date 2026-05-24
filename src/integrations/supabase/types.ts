@@ -73,28 +73,43 @@ export type Database = {
       }
       doctors: {
         Row: {
+          auth_email: string | null
           cabinet_name: string | null
           created_at: string
           full_name: string
           id: string
+          parafa_code: string
           slug: string
           specialty: string
+          work_end_time: string
+          work_start_time: string
+          working_days: number[]
         }
         Insert: {
+          auth_email?: string | null
           cabinet_name?: string | null
           created_at?: string
           full_name: string
           id?: string
+          parafa_code: string
           slug: string
           specialty?: string
+          work_end_time?: string
+          work_start_time?: string
+          working_days?: number[]
         }
         Update: {
+          auth_email?: string | null
           cabinet_name?: string | null
           created_at?: string
           full_name?: string
           id?: string
+          parafa_code?: string
           slug?: string
           specialty?: string
+          work_end_time?: string
+          work_start_time?: string
+          working_days?: number[]
         }
         Relationships: []
       }
@@ -164,6 +179,7 @@ export type Database = {
           recipient_phone: string
           status: string
           tag: string | null
+          template_id: string | null
         }
         Insert: {
           created_at?: string
@@ -174,6 +190,7 @@ export type Database = {
           recipient_phone: string
           status?: string
           tag?: string | null
+          template_id?: string | null
         }
         Update: {
           created_at?: string
@@ -184,6 +201,7 @@ export type Database = {
           recipient_phone?: string
           status?: string
           tag?: string | null
+          template_id?: string | null
         }
         Relationships: [
           {
@@ -194,6 +212,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      tokenuri_sms: {
+        Row: {
+          created_at: string
+          expira_la: string
+          folosit: boolean
+          id: string
+          patient_id: string | null
+          patient_name: string | null
+          phone: string
+          token: string
+        }
+        Insert: {
+          created_at?: string
+          expira_la?: string
+          folosit?: boolean
+          id?: string
+          patient_id?: string | null
+          patient_name?: string | null
+          phone: string
+          token?: string
+        }
+        Update: {
+          created_at?: string
+          expira_la?: string
+          folosit?: boolean
+          id?: string
+          patient_id?: string | null
+          patient_name?: string | null
+          phone?: string
+          token?: string
+        }
+        Relationships: []
       }
       vaccinations: {
         Row: {

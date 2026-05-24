@@ -1,42 +1,67 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { AppHeader } from "@/components/AppHeader";
+import { cancelAppointment } from "@/lib/appointments.functions";
+import { useCurrentDoctor } from "@/hooks/useCurrentDoctor";
 import {
-  DOCTOR_ID,
   RO_DAYS_SHORT,
   RO_MONTHS,
-  SLOT_HOURS,
   addDays,
+  generateSlots,
+  isoDow,
   startOfWeek,
   toISODate,
 } from "@/lib/clinic";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/calendar")({
+  beforeLoad: async () => {
+    const { data } = await supabase.auth.getSession();
+    if (!data.session) throw redirect({ to: "/login" });
+  },
   component: CalendarPage,
   head: () => ({ meta: [{ title: "Calendar — MedCab" }] }),
 });
 
+const DAY_LABELS = ["Luni", "Marți", "Miercuri", "Joi", "Vineri", "Sâmbătă", "Duminică"];
+
 function CalendarPage() {
   const qc = useQueryClient();
+  const cancelAppointmentFn = useServerFn(cancelAppointment);
+  const { data: doctor } = useCurrentDoctor();
+  const doctorId = doctor?.id;
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
   const [creating, setCreating] = useState<{ date: string; time: string } | null>(null);
   const [editingAppt, setEditingAppt] = useState<any | null>(null);
+  const [showHoursEditor, setShowHoursEditor] = useState(false);
 
-  const days = useMemo(() => Array.from({ length: 6 }, (_, i) => addDays(weekStart, i)), [weekStart]);
-  const weekEnd = addDays(weekStart, 5);
+  const workingDays = doctor?.working_days ?? [1, 2, 3, 4, 5];
+  const workStart = doctor?.work_start_time ?? "08:00";
+  const workEnd = doctor?.work_end_time ?? "18:00";
+
+  // Toate cele 7 zile, dar afișăm doar zilele de lucru
+  const days = useMemo(() => {
+    const all = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+    return all.filter((d) => workingDays.includes(isoDow(d)));
+  }, [weekStart, workingDays]);
+  const weekEnd = addDays(weekStart, 6);
+
+  const slotHours = useMemo(() => generateSlots(workStart, workEnd), [workStart, workEnd]);
 
   const { data: appts = [] } = useQuery({
-    queryKey: ["appointments", DOCTOR_ID, "week", toISODate(weekStart)],
+    queryKey: ["appointments", doctorId, "week", toISODate(weekStart)],
+    enabled: !!doctorId,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("appointments")
         .select("*")
-        .eq("doctor_id", DOCTOR_ID)
+        .eq("doctor_id", doctorId!)
         .gte("appointment_date", toISODate(weekStart))
         .lte("appointment_date", toISODate(weekEnd))
+        .neq("status", "cancelled")
         .order("appointment_time");
       if (error) throw error;
       return data;
@@ -60,7 +85,7 @@ function CalendarPage() {
       reason: string;
     }) => {
       const { error } = await supabase.from("appointments").insert({
-        doctor_id: DOCTOR_ID,
+        doctor_id: doctorId!,
         patient_name: input.patient_name,
         patient_phone: input.patient_phone || null,
         appointment_date: input.date,
@@ -105,16 +130,35 @@ function CalendarPage() {
 
   const remove = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("appointments").delete().eq("id", id);
-      if (error) throw error;
+      return cancelAppointmentFn({ data: { appointmentId: id } });
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       qc.invalidateQueries({ queryKey: ["appointments"] });
+      qc.invalidateQueries({ queryKey: ["sms_log"] });
       setEditingAppt(null);
-      toast.success("Programare ștearsă");
+      if (result.warning) toast.warning(`Programare anulată. ${result.warning}`);
+      else toast.success("Programare anulată și pacientul a fost notificat prin SMS");
     },
     onError: (e: any) => toast.error(e.message),
   });
+
+  const saveHours = useMutation({
+    mutationFn: async (input: { working_days: number[]; work_start_time: string; work_end_time: string }) => {
+      const { error } = await supabase
+        .from("doctors")
+        .update(input)
+        .eq("id", doctorId!);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["current-doctor"] });
+      setShowHoursEditor(false);
+      toast.success("Program actualizat");
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const gridCols = `60px repeat(${days.length}, minmax(0, 1fr))`;
 
   return (
     <div className="min-h-screen bg-background p-6 lg:p-12">
@@ -129,6 +173,12 @@ function CalendarPage() {
             </h2>
           </div>
           <div className="flex gap-2 items-center">
+            <button
+              onClick={() => setShowHoursEditor(true)}
+              className="px-4 py-2 rounded-full border border-border text-sm font-medium hover:bg-muted"
+            >
+              Program de lucru
+            </button>
             <button
               onClick={() => setWeekStart(addDays(weekStart, -7))}
               className="size-9 grid place-items-center rounded-full border border-border hover:bg-muted"
@@ -151,7 +201,7 @@ function CalendarPage() {
         </div>
 
         <div className="bg-card border border-border/60 rounded-2xl overflow-hidden">
-          <div className="grid grid-cols-[60px_repeat(6,minmax(0,1fr))] border-b border-border/60 bg-muted/30">
+          <div className="grid border-b border-border/60 bg-muted/30" style={{ gridTemplateColumns: gridCols }}>
             <div />
             {days.map((d) => {
               const iso = toISODate(d);
@@ -176,10 +226,11 @@ function CalendarPage() {
           </div>
 
           <div className="max-h-[600px] overflow-y-auto">
-            {SLOT_HOURS.map((time) => (
+            {slotHours.map((time) => (
               <div
                 key={time}
-                className="grid grid-cols-[60px_repeat(6,minmax(0,1fr))] border-b border-border/40 min-h-[44px]"
+                className="grid border-b border-border/40 min-h-[44px]"
+                style={{ gridTemplateColumns: gridCols }}
               >
                 <div className="p-2 text-[10px] font-mono text-muted-foreground border-r border-border/40">
                   {time}
@@ -242,12 +293,115 @@ function CalendarPage() {
           onClose={() => setEditingAppt(null)}
           onSave={(f) => update.mutate({ id: editingAppt.id, ...f })}
           onDelete={() => {
-            if (confirm("Ștergi această programare?")) remove.mutate(editingAppt.id);
+            if (confirm("Anulezi această programare și trimiți SMS pacientului?")) remove.mutate(editingAppt.id);
           }}
           saving={update.isPending || remove.isPending}
           editing
         />
       )}
+
+      {showHoursEditor && doctor && (
+        <WorkingHoursModal
+          initial={{
+            working_days: workingDays,
+            work_start_time: workStart.slice(0, 5),
+            work_end_time: workEnd.slice(0, 5),
+          }}
+          onClose={() => setShowHoursEditor(false)}
+          onSave={(f) => saveHours.mutate(f)}
+          saving={saveHours.isPending}
+        />
+      )}
+    </div>
+  );
+}
+
+function WorkingHoursModal({
+  initial,
+  onClose,
+  onSave,
+  saving,
+}: {
+  initial: { working_days: number[]; work_start_time: string; work_end_time: string };
+  onClose: () => void;
+  onSave: (f: { working_days: number[]; work_start_time: string; work_end_time: string }) => void;
+  saving: boolean;
+}) {
+  const [days, setDays] = useState<number[]>(initial.working_days);
+  const [start, setStart] = useState(initial.work_start_time);
+  const [end, setEnd] = useState(initial.work_end_time);
+
+  const toggle = (d: number) =>
+    setDays((cur) => (cur.includes(d) ? cur.filter((x) => x !== d) : [...cur, d].sort()));
+
+  return (
+    <div className="fixed inset-0 z-50 bg-secondary/60 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="bg-card rounded-3xl p-8 w-full max-w-md border border-border">
+        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary mb-1">Setări</p>
+        <h3 className="text-xl font-display font-bold mb-6">Program de lucru</h3>
+
+        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">
+          Zile de lucru
+        </p>
+        <div className="grid grid-cols-7 gap-1.5 mb-6">
+          {DAY_LABELS.map((lbl, i) => {
+            const dow = i + 1;
+            const active = days.includes(dow);
+            return (
+              <button
+                key={dow}
+                onClick={() => toggle(dow)}
+                className={
+                  "py-2 rounded-lg text-xs font-medium border transition-colors " +
+                  (active
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-card border-border hover:border-primary")
+                }
+              >
+                {lbl.slice(0, 3)}
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="grid grid-cols-2 gap-4 mb-8">
+          <div>
+            <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">
+              Ora început
+            </label>
+            <input
+              type="time"
+              value={start}
+              onChange={(e) => setStart(e.target.value)}
+              className="w-full bg-muted/40 border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
+            />
+          </div>
+          <div>
+            <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">
+              Ora sfârșit
+            </label>
+            <input
+              type="time"
+              value={end}
+              onChange={(e) => setEnd(e.target.value)}
+              className="w-full bg-muted/40 border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary"
+            />
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-2">
+          <button onClick={onClose} className="px-4 py-2 rounded-full text-sm font-medium hover:bg-muted">
+            Anulează
+          </button>
+          <button
+            disabled={saving || days.length === 0 || start >= end}
+            onClick={() => onSave({ working_days: days, work_start_time: start, work_end_time: end })}
+            className="px-5 py-2 rounded-full bg-secondary text-secondary-foreground text-sm font-medium hover:bg-primary disabled:opacity-50"
+          >
+            {saving ? "Se salvează..." : "Salvează"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -294,7 +448,7 @@ function AppointmentModal({
                 disabled={saving}
                 className="px-4 py-2 rounded-full text-sm font-medium text-red-700 hover:bg-red-500/10 disabled:opacity-50"
               >
-                Șterge
+                Anulează programarea
               </button>
             )}
           </div>

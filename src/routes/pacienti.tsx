@@ -1,11 +1,11 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { AppHeader } from "@/components/AppHeader";
-import { DOCTOR_ID, formatRoDate, ageFromBirth } from "@/lib/clinic";
+import { formatRoDate, ageFromBirth } from "@/lib/clinic";
+import { useCurrentDoctor } from "@/hooks/useCurrentDoctor";
 import {
-  SEGMENTS,
   populationStats,
   vaccineSuggestions,
   type PatientLite,
@@ -14,7 +14,16 @@ import {
 } from "@/lib/segments";
 import { toast } from "sonner";
 
+type PatientsSearch = { id?: string };
+
 export const Route = createFileRoute("/pacienti")({
+  validateSearch: (s: Record<string, unknown>): PatientsSearch => ({
+    id: typeof s.id === "string" ? s.id : undefined,
+  }),
+  beforeLoad: async () => {
+    const { data } = await supabase.auth.getSession();
+    if (!data.session) throw redirect({ to: "/login" });
+  },
   component: PatientsPage,
   head: () => ({ meta: [{ title: "Pacienți — MedCab" }] }),
 });
@@ -37,26 +46,24 @@ const empty: Omit<Patient, "id"> = {
   last_bp_check: null,
 };
 
-const TONE_CLASS: Record<string, string> = {
-  danger: "bg-red-500/10 text-red-700 border-red-500/30",
-  warn: "bg-amber-500/10 text-amber-700 border-amber-500/30",
-  info: "bg-primary/10 text-primary border-primary/30",
-  ok: "bg-emerald-500/10 text-emerald-700 border-emerald-500/30",
-};
 
 function PatientsPage() {
   const qc = useQueryClient();
-  const [activeSegment, setActiveSegment] = useState<string | null>(null);
+  const search = Route.useSearch();
+  const navigate = useNavigate();
+  const { data: doctor } = useCurrentDoctor();
+  const doctorId = doctor?.id;
   const [editing, setEditing] = useState<Patient | null>(null);
   const [creating, setCreating] = useState(false);
 
   const { data: patients = [], isLoading } = useQuery({
-    queryKey: ["patients", DOCTOR_ID],
+    queryKey: ["patients", doctorId],
+    enabled: !!doctorId,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("patients")
         .select("*")
-        .eq("doctor_id", DOCTOR_ID)
+        .eq("doctor_id", doctorId!)
         .order("full_name");
       if (error) throw error;
       return data as Patient[];
@@ -65,13 +72,12 @@ function PatientsPage() {
 
   const stats = useMemo(() => populationStats(patients), [patients]);
 
-  const segmentCounts = useMemo(
-    () =>
-      Object.fromEntries(
-        SEGMENTS.map((s) => [s.id, patients.filter(s.match).length]),
-      ),
-    [patients],
-  );
+  // Deschide automat fișa pacientului dacă URL-ul are ?id=<uuid>
+  useEffect(() => {
+    if (!search.id || patients.length === 0) return;
+    const p = patients.find((x) => x.id === search.id);
+    if (p) setEditing(p);
+  }, [search.id, patients]);
 
   const save = useMutation({
     mutationFn: async (p: Partial<Patient> & { id?: string }) => {
@@ -93,7 +99,7 @@ function PatientsPage() {
       } else {
         const { error } = await supabase
           .from("patients")
-          .insert({ doctor_id: DOCTOR_ID, ...payload });
+          .insert({ doctor_id: doctorId!, ...payload });
         if (error) throw error;
       }
     },
@@ -106,12 +112,13 @@ function PatientsPage() {
     onError: (e: any) => toast.error(e.message),
   });
 
-  const segment = SEGMENTS.find((s) => s.id === activeSegment) ?? null;
+  const filtered = patients;
 
-  const filtered = patients.filter((p) => {
-    if (segment && !segment.match(p)) return false;
-    return true;
-  });
+  function closeModal() {
+    setCreating(false);
+    setEditing(null);
+    if (search.id) navigate({ to: "/pacienti", search: {} });
+  }
 
   return (
     <div className="min-h-screen bg-background p-6 lg:p-12">
@@ -133,59 +140,10 @@ function PatientsPage() {
           ))}
         </section>
 
-        {/* Segmente automate */}
-        <section>
-          <h2 className="text-xs font-bold uppercase tracking-[0.18em] text-muted-foreground mb-3">
-            Segmente automate
-          </h2>
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => setActiveSegment(null)}
-              className={
-                "px-4 py-2 rounded-full text-xs font-medium border transition-colors " +
-                (activeSegment === null
-                  ? "bg-secondary text-secondary-foreground border-secondary"
-                  : "bg-card border-border hover:bg-muted")
-              }
-            >
-              Toți · {patients.length}
-            </button>
-            {SEGMENTS.map((s) => {
-              const active = activeSegment === s.id;
-              return (
-                <button
-                  key={s.id}
-                  onClick={() => setActiveSegment(active ? null : s.id)}
-                  title={s.hint}
-                  className={
-                    "px-4 py-2 rounded-full text-xs font-medium border transition-colors " +
-                    (active
-                      ? "bg-secondary text-secondary-foreground border-secondary"
-                      : TONE_CLASS[s.tone])
-                  }
-                >
-                  {s.label} · {segmentCounts[s.id]}
-                </button>
-              );
-            })}
-          </div>
-          {segment && (
-            <p className="mt-3 text-xs text-muted-foreground">
-              {segment.hint}.{" "}
-              <button
-                className="underline hover:text-foreground"
-                onClick={() => setActiveSegment(null)}
-              >
-                Resetează filtru
-              </button>
-            </p>
-          )}
-        </section>
-
         {/* Header */}
         <div className="flex items-center justify-between flex-wrap gap-4">
           <h2 className="text-2xl font-display font-bold">
-            {segment ? segment.label : "Toți pacienții"}
+            Toți pacienții
             <span className="text-base font-mono text-muted-foreground font-normal ml-2">
               {filtered.length}
             </span>

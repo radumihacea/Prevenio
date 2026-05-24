@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as VaccinuriRouteImport } from './routes/vaccinuri'
 import { Route as SignupRouteImport } from './routes/signup'
+import { Route as ProgramulZileiRouteImport } from './routes/programul-zilei'
 import { Route as PacientiRouteImport } from './routes/pacienti'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ComunicareRouteImport } from './routes/comunicare'
@@ -27,6 +28,11 @@ const VaccinuriRoute = VaccinuriRouteImport.update({
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
   path: '/signup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProgramulZileiRoute = ProgramulZileiRouteImport.update({
+  id: '/programul-zilei',
+  path: '/programul-zilei',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PacientiRoute = PacientiRouteImport.update({
@@ -71,6 +77,7 @@ export interface FileRoutesByFullPath {
   '/comunicare': typeof ComunicareRoute
   '/login': typeof LoginRoute
   '/pacienti': typeof PacientiRoute
+  '/programul-zilei': typeof ProgramulZileiRoute
   '/signup': typeof SignupRoute
   '/vaccinuri': typeof VaccinuriRoute
   '/cabinet/$slug/programari': typeof CabinetSlugProgramariRoute
@@ -82,6 +89,7 @@ export interface FileRoutesByTo {
   '/comunicare': typeof ComunicareRoute
   '/login': typeof LoginRoute
   '/pacienti': typeof PacientiRoute
+  '/programul-zilei': typeof ProgramulZileiRoute
   '/signup': typeof SignupRoute
   '/vaccinuri': typeof VaccinuriRoute
   '/cabinet/$slug/programari': typeof CabinetSlugProgramariRoute
@@ -94,6 +102,7 @@ export interface FileRoutesById {
   '/comunicare': typeof ComunicareRoute
   '/login': typeof LoginRoute
   '/pacienti': typeof PacientiRoute
+  '/programul-zilei': typeof ProgramulZileiRoute
   '/signup': typeof SignupRoute
   '/vaccinuri': typeof VaccinuriRoute
   '/cabinet/$slug/programari': typeof CabinetSlugProgramariRoute
@@ -107,6 +116,7 @@ export interface FileRouteTypes {
     | '/comunicare'
     | '/login'
     | '/pacienti'
+    | '/programul-zilei'
     | '/signup'
     | '/vaccinuri'
     | '/cabinet/$slug/programari'
@@ -118,6 +128,7 @@ export interface FileRouteTypes {
     | '/comunicare'
     | '/login'
     | '/pacienti'
+    | '/programul-zilei'
     | '/signup'
     | '/vaccinuri'
     | '/cabinet/$slug/programari'
@@ -129,6 +140,7 @@ export interface FileRouteTypes {
     | '/comunicare'
     | '/login'
     | '/pacienti'
+    | '/programul-zilei'
     | '/signup'
     | '/vaccinuri'
     | '/cabinet/$slug/programari'
@@ -141,6 +153,7 @@ export interface RootRouteChildren {
   ComunicareRoute: typeof ComunicareRoute
   LoginRoute: typeof LoginRoute
   PacientiRoute: typeof PacientiRoute
+  ProgramulZileiRoute: typeof ProgramulZileiRoute
   SignupRoute: typeof SignupRoute
   VaccinuriRoute: typeof VaccinuriRoute
   CabinetSlugProgramariRoute: typeof CabinetSlugProgramariRoute
@@ -161,6 +174,13 @@ declare module '@tanstack/react-router' {
       path: '/signup'
       fullPath: '/signup'
       preLoaderRoute: typeof SignupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/programul-zilei': {
+      id: '/programul-zilei'
+      path: '/programul-zilei'
+      fullPath: '/programul-zilei'
+      preLoaderRoute: typeof ProgramulZileiRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/pacienti': {
@@ -221,6 +241,7 @@ const rootRouteChildren: RootRouteChildren = {
   ComunicareRoute: ComunicareRoute,
   LoginRoute: LoginRoute,
   PacientiRoute: PacientiRoute,
+  ProgramulZileiRoute: ProgramulZileiRoute,
   SignupRoute: SignupRoute,
   VaccinuriRoute: VaccinuriRoute,
   CabinetSlugProgramariRoute: CabinetSlugProgramariRoute,
