@@ -36,7 +36,7 @@ async function sendSms(phone: string, message: string, gatewayUrl: string) {
   }
 }
 
-export const Route = createFileRoute()({
+export const Route = createFileRoute("/api/public/hooks/auto-comms")({
   server: {
     handlers: {
       POST: async ({ request }) => {
