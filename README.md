@@ -1,4 +1,4 @@
-# MedCab — Cabinetul medicului de familie, digital
+# Prevenio — Cabinetul medicului de familie, digital
 
 ## 1. Cum se numește?
 
